@@ -651,8 +651,11 @@
     
     <!-- 音乐控制按钮 -->
     <div class="music-control" style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
-        <button id="musicToggle" class="control-btn" style="background: rgba(100, 255, 218, 0.2); color: #64ffda; border: 1px solid #64ffda;">
-            🔊 音乐开关
+        <button id="musicToggle" class="control-btn" style="background: rgba(100, 255, 218, 0.2); color: #64ffda; border: 1px solid #64ffda; margin-right: 8px;">
+            🎵 音乐开关
+        </button>
+        <button id="soundToggle" class="control-btn" style="background: rgba(255, 255, 255, 0.08); color: #ffd166; border: 1px solid rgba(255, 209, 102, 0.8);">
+            🔊 音效开
         </button>
     </div>
     
@@ -693,6 +696,7 @@
                         <div class="lives-info">生命值：<span id="lives">3</span></div>
                         <div class="level-info">关卡：<span id="level">1</span></div>
                         <div class="mode-info">模式：<span id="mode">DNA</span></div>
+                        <div class="combo-info">连击：<span id="combo">0</span></div>
                     </div>
                 </div>
             </header>
@@ -727,6 +731,7 @@
                 <div>最终分数：<span id="finalScore">0</span></div>
                 <div>配对次数：<span id="pairCount">0</span></div>
                 <div>正确率：<span id="accuracy">0%</span></div>
+                <div>最高连击：<span id="bestCombo">0</span></div>
             </div>
             <div id="knowledgeReport" class="knowledge-report"></div>
             <div class="game-over-options">
@@ -752,7 +757,171 @@
 
     <script>
         // 碱基配对大作战游戏主控制文件
-        class BasePairGame {
+        
+        let gameAudioContext = null;
+
+        function getGameAudioContext() {
+            if (!gameAudioContext) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return null;
+                gameAudioContext = new AudioCtx();
+            }
+            if (gameAudioContext.state === 'suspended') {
+                gameAudioContext.resume().catch(() => {});
+            }
+            return gameAudioContext;
+        }
+
+        function createMasterGain(ctx, peak = 0.2) {
+            const gain = ctx.createGain();
+            gain.gain.value = peak;
+            gain.connect(ctx.destination);
+            return gain;
+        }
+
+        function createNoiseBuffer(ctx) {
+            const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.12, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < data.length; i++) {
+                data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+            }
+            return buffer;
+        }
+
+        function synthSuccessSound(power = 1, combo = 0) {
+            const ctx = getGameAudioContext();
+            if (!ctx) return;
+            const now = ctx.currentTime;
+            const comboBoost = Math.min(1.7, 1 + combo * 0.08);
+            const notes = [620, 860, 1120];
+            notes.forEach((freq, i) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = i === 0 ? 'square' : 'triangle';
+                const start = now + i * 0.035;
+                const peak = (0.11 - i * 0.015) * power * comboBoost;
+                gain.gain.setValueAtTime(0.0001, start);
+                gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak), start + 0.008);
+                gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
+                osc.frequency.setValueAtTime(freq * (1 + combo * 0.01), start);
+                osc.frequency.exponentialRampToValueAtTime(freq * 1.08, start + 0.14);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(start);
+                osc.stop(start + 0.17);
+            });
+
+            if (combo >= 3) {
+                const sparkle = ctx.createOscillator();
+                const sparkleGain = ctx.createGain();
+                sparkle.type = 'sine';
+                sparkle.frequency.setValueAtTime(1380 + combo * 35, now + 0.02);
+                sparkle.frequency.exponentialRampToValueAtTime(1680 + combo * 42, now + 0.10);
+                sparkleGain.gain.setValueAtTime(0.0001, now + 0.02);
+                sparkleGain.gain.exponentialRampToValueAtTime(0.07 * power, now + 0.03);
+                sparkleGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
+                sparkle.connect(sparkleGain);
+                sparkleGain.connect(ctx.destination);
+                sparkle.start(now + 0.02);
+                sparkle.stop(now + 0.11);
+            }
+        }
+
+        function synthFailSound(power = 1) {
+            const ctx = getGameAudioContext();
+            if (!ctx) return;
+            const now = ctx.currentTime;
+
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(240, now);
+            osc.frequency.exponentialRampToValueAtTime(92, now + 0.22);
+            gain.gain.setValueAtTime(0.0001, now);
+            gain.gain.exponentialRampToValueAtTime(0.18 * power, now + 0.008);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.24);
+
+            const noise = ctx.createBufferSource();
+            noise.buffer = createNoiseBuffer(ctx);
+            const bandpass = ctx.createBiquadFilter();
+            bandpass.type = 'bandpass';
+            bandpass.frequency.value = 420;
+            bandpass.Q.value = 0.8;
+            const noiseGain = ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.0001, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.035 * power, now + 0.01);
+            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+            noise.connect(bandpass);
+            bandpass.connect(noiseGain);
+            noiseGain.connect(ctx.destination);
+            noise.start(now);
+            noise.stop(now + 0.18);
+        }
+
+        function synthPropSound(power = 1) {
+            const ctx = getGameAudioContext();
+            if (!ctx) return;
+            const now = ctx.currentTime;
+            [520, 760, 1040].forEach((freq, i) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                const start = now + i * 0.03;
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, start);
+                osc.frequency.exponentialRampToValueAtTime(freq * 1.12, start + 0.12);
+                gain.gain.setValueAtTime(0.0001, start);
+                gain.gain.exponentialRampToValueAtTime((0.10 - i * 0.01) * power, start + 0.006);
+                gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.13);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(start);
+                osc.stop(start + 0.14);
+            });
+        }
+
+        function synthComboAccent(combo) {
+            const ctx = getGameAudioContext();
+            if (!ctx || combo < 3) return;
+            const now = ctx.currentTime;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'square';
+            const freq = Math.min(1800, 980 + combo * 55);
+            osc.frequency.setValueAtTime(freq, now);
+            osc.frequency.exponentialRampToValueAtTime(freq * 1.06, now + 0.09);
+            gain.gain.setValueAtTime(0.0001, now);
+            gain.gain.exponentialRampToValueAtTime(Math.min(0.14, 0.055 + combo * 0.008), now + 0.006);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.10);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.10);
+        }
+
+        function playGameSound(type, options = {}) {
+            const enabled = localStorage.getItem('dnaGameSoundEnabled');
+            if (enabled === 'false') return;
+            const intensity = options.intensity || 1;
+            const combo = options.combo || 0;
+            if (type === 'success') {
+                synthSuccessSound(intensity, combo);
+                if (combo >= 3) synthComboAccent(combo);
+                return;
+            }
+            if (type === 'fail') {
+                synthFailSound(intensity);
+                return;
+            }
+            if (type === 'prop') {
+                synthPropSound(intensity);
+            }
+        }
+
+class BasePairGame {
             constructor() {
                 this.canvas = document.getElementById('gameCanvas');
                 this.ctx = this.canvas.getContext('2d');
@@ -784,6 +953,8 @@
                 // 游戏统计
                 this.pairCount = 0;
                 this.correctPairs = 0;
+                this.combo = 0;
+                this.bestCombo = 0;
                 this.playerName = '游客';
                 this.leaderboardKey = 'dna-game-leaderboard';
                 this.knowledgeStats = {
@@ -959,6 +1130,8 @@
                 this.speedIncrementCount = 0;
                 this.pairCount = 0;
                 this.correctPairs = 0;
+                this.combo = 0;
+                this.bestCombo = 0;
                 this.gameTime = 0; // 游戏运行时间（用于随时间加速）
                 this.baseSpawnCounter = 0; // 重置碱基生成计数器
                 this.lastLifePropScore = 0; // 重置生命补给包分数记录
@@ -973,7 +1146,8 @@
                 };
                 
                 // 重置统计数据
-                // 注意：不要在这里重置 playerName，否则排行榜会被覆盖成“游客”
+                this.playerName = '游客';
+                this.leaderboardKey = 'dna-game-leaderboard';
                 this.knowledgeStats = {
                     'A-T': { total: 0, correct: 0 },
                     'A-U': { total: 0, correct: 0 },
@@ -1060,6 +1234,7 @@
                     name: this.playerName || '游客',
                     score: this.score,
                     accuracy,
+                    bestCombo: this.bestCombo || 0,
                     difficulty: this.difficulty,
                     time: new Date().toLocaleString('zh-CN')
                 };
@@ -1090,7 +1265,7 @@
                                 <div class="leaderboard-rank">#${index + 1}</div>
                                 <div>
                                     <div>${item.name}</div>
-                                    <div class="leaderboard-meta">${difficultyMap[item.difficulty] || item.difficulty} · ${item.time}</div>
+                                    <div class="leaderboard-meta">${difficultyMap[item.difficulty] || item.difficulty} · 连击x${item.bestCombo || 0} · ${item.time}</div>
                                 </div>
                                 <div>${item.accuracy}%</div>
                                 <div>${item.score}分</div>
@@ -1395,8 +1570,11 @@
             handleBaseCollision(base) {
                 if (base.type === 'fake') {
                     // 碰到假碱基，扣生命值
+                    const brokenCombo = this.combo;
+                    this.combo = 0;
                     this.lives--;
-                    this.showKnowledgeTip('碰到假碱基！生命值-1');
+                    playGameSound('fail', { intensity: 1.2 });
+                    this.showKnowledgeTip(brokenCombo >= 3 ? `碰到假碱基！生命值-1\n连击中断 x${brokenCombo}` : '碰到假碱基！生命值-1');
                     this.updateUI();
                     return;
                 }
@@ -1421,6 +1599,8 @@
                     // 配对成功
                     this.score += 10;
                     this.speedIncrementCount++;
+                    this.combo += 1;
+                    this.bestCombo = Math.max(this.bestCombo, this.combo);
                     
                     // 检查速度提升
                     if (this.speedIncrementCount >= 5) {
@@ -1432,7 +1612,10 @@
                     }
                     
                     // 显示知识点提示
-                    this.showKnowledgeTip(this.getKnowledgeTip(this.currentBase, base.type));
+                    playGameSound('success', { intensity: 1.25, combo: this.combo });
+                    const comboText = this.combo >= 2 ? `
+连击 x${this.combo}！` : '';
+                    this.showKnowledgeTip(this.getKnowledgeTip(this.currentBase, base.type) + comboText);
                     
                     // 生成粒子效果
                     this.createParticles(this.playerBase.x, this.playerBase.y, 'success');
@@ -1443,8 +1626,11 @@
                     }
                 } else {
                     // 配对失败
+                    const brokenCombo = this.combo;
+                    this.combo = 0;
                     this.lives--;
-                    this.showKnowledgeTip('配对错误！生命值-1');
+                    playGameSound('fail', { intensity: 1.08 });
+                    this.showKnowledgeTip(brokenCombo >= 3 ? `配对错误！生命值-1\n连击中断 x${brokenCombo}` : '配对错误！生命值-1');
                     this.createParticles(this.playerBase.x, this.playerBase.y, 'fail');
                 }
                 
@@ -1452,6 +1638,7 @@
             }
             
             handlePropCollision(prop) {
+                playGameSound('prop', { intensity: 1.12 });
                 switch (prop.type) {
                     case 'lock':
                         this.propActive.lock = true;
@@ -1570,6 +1757,7 @@
                 
                 const accuracy = this.pairCount > 0 ? Math.round((this.correctPairs / this.pairCount) * 100) : 0;
                 document.getElementById('accuracy').textContent = `${accuracy}%`;
+                document.getElementById('bestCombo').textContent = this.bestCombo;
                 
                 // 生成知识点报告
                 this.generateKnowledgeReport();
@@ -1640,6 +1828,8 @@
                 document.getElementById('score').textContent = this.score;
                 document.getElementById('lives').textContent = this.lives;
                 document.getElementById('level').textContent = this.level;
+                const comboEl = document.getElementById('combo');
+                if (comboEl) comboEl.textContent = this.combo;
             }
             
             render() {
@@ -1932,6 +2122,14 @@
         let game;
         window.addEventListener('DOMContentLoaded', () => {
             game = new BasePairGame();
+            const unlockAudio = () => {
+                const ctx = getGameAudioContext();
+                if (ctx && ctx.state === 'suspended') {
+                    ctx.resume().catch(() => {});
+                }
+            };
+            document.addEventListener('click', unlockAudio, { once: true });
+            document.addEventListener('touchstart', unlockAudio, { once: true });
         });
     </script>
 </body>
