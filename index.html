@@ -416,6 +416,150 @@
             border: 2px solid pink;
         }
 
+
+        .start-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 18px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .secondary-btn {
+            background: rgba(100, 255, 218, 0.08);
+            color: #64ffda;
+            border: 1px solid rgba(100, 255, 218, 0.35);
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        .secondary-btn:hover {
+            background: rgba(100, 255, 218, 0.16);
+            transform: translateY(-2px);
+        }
+
+        .project-badge {
+            position: absolute;
+            left: 20px;
+            top: 20px;
+            padding: 10px 16px;
+            border-radius: 999px;
+            background: rgba(100, 255, 218, 0.12);
+            border: 1px solid rgba(100, 255, 218, 0.25);
+            color: #ccd6f6;
+            font-size: 14px;
+            backdrop-filter: blur(8px);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(3, 11, 24, 0.72);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            padding: 20px;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-card {
+            width: min(92vw, 560px);
+            max-height: 80vh;
+            overflow-y: auto;
+            background: linear-gradient(180deg, rgba(17,34,64,0.98) 0%, rgba(10,25,47,0.98) 100%);
+            border: 1px solid rgba(100, 255, 218, 0.2);
+            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+            border-radius: 20px;
+            padding: 24px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            gap: 12px;
+        }
+
+        .modal-title {
+            font-size: 26px;
+            color: #ccd6f6;
+        }
+
+        .close-btn {
+            border: none;
+            background: transparent;
+            color: #64ffda;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .about-content, .leaderboard-list {
+            color: #a8b2d1;
+            line-height: 1.8;
+            font-size: 16px;
+        }
+
+        .about-content p + p {
+            margin-top: 10px;
+        }
+
+        .leaderboard-item {
+            display: grid;
+            grid-template-columns: 56px 1fr auto auto;
+            gap: 12px;
+            align-items: center;
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.04);
+            margin-bottom: 10px;
+        }
+
+        .leaderboard-rank {
+            color: #64ffda;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .leaderboard-meta {
+            color: #8892b0;
+            font-size: 13px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #8892b0;
+            padding: 24px 10px;
+        }
+
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 28px;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(100, 255, 218, 0.92);
+            color: #0a192f;
+            padding: 12px 18px;
+            border-radius: 999px;
+            font-weight: bold;
+            z-index: 3500;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.25s ease;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
         /* 响应式设计 */
         @media (max-width: 900px) {
             #gameCanvas {
@@ -470,6 +614,16 @@
                 font-size: 14px;
                 padding: 10px 20px;
             }
+
+            .start-actions {
+                flex-direction: column;
+                width: 100%;
+                align-items: center;
+            }
+
+            .secondary-btn {
+                width: min(240px, 80vw);
+            }
             
             .game-header {
                 padding: 10px 15px;
@@ -505,6 +659,7 @@
     <div class="game-container">
         <!-- 游戏开始界面 -->
         <div id="startScreen" class="screen active">
+            <div class="project-badge">毕设展示版 · 在线可玩</div>
             <h1>碱基配对大作战</h1>
             <div class="game-description">
                 <p>休闲益智类游戏，严格贴合人教版高中生物碱基互补配对核心知识点</p>
@@ -515,6 +670,11 @@
                 <button class="difficulty-btn" data-difficulty="easy">初级 - DNA配对入门</button>
                 <button class="difficulty-btn" data-difficulty="medium">中级 - 转录配对挑战</button>
                 <button class="difficulty-btn" data-difficulty="hard">高级 - 中心法则混合战</button>
+            </div>
+            <div class="start-actions">
+                <button id="leaderboardBtn" class="secondary-btn">查看排行榜</button>
+                <button id="aboutBtn" class="secondary-btn">项目介绍</button>
+                <button id="shareBtn" class="secondary-btn">复制分享链接</button>
             </div>
         </div>
 
@@ -572,9 +732,23 @@
             <div class="game-over-options">
                 <button id="restartGameBtn" class="control-btn">重新开始</button>
                 <button id="backToMenuFromOverBtn" class="control-btn">返回主菜单</button>
+                <button id="leaderboardFromOverBtn" class="control-btn">查看排行榜</button>
             </div>
         </div>
     </div>
+
+
+    <div id="infoModal" class="modal-overlay" aria-hidden="true">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modalTitle" class="modal-title">项目介绍</h3>
+                <button id="closeModalBtn" class="close-btn" aria-label="关闭">×</button>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">链接已复制</div>
 
     <script>
         // 碱基配对大作战游戏主控制文件
@@ -610,6 +784,8 @@
                 // 游戏统计
                 this.pairCount = 0;
                 this.correctPairs = 0;
+                this.playerName = '游客';
+                this.leaderboardKey = 'dna-game-leaderboard';
                 this.knowledgeStats = {
                     'A-T': { total: 0, correct: 0 },
                     'A-U': { total: 0, correct: 0 },
@@ -690,6 +866,34 @@
                     });
                 });
                 
+                document.getElementById('leaderboardBtn').addEventListener('click', () => {
+                    this.showLeaderboard();
+                });
+
+                document.getElementById('aboutBtn').addEventListener('click', () => {
+                    this.showAbout();
+                });
+
+                document.getElementById('shareBtn').addEventListener('click', () => {
+                    this.copyShareLink();
+                });
+
+                document.getElementById('closeModalBtn').addEventListener('click', () => {
+                    this.hideModal();
+                });
+
+                document.getElementById('infoModal').addEventListener('click', (e) => {
+                    if (e.target.id === 'infoModal') {
+                        this.hideModal();
+                    }
+                });
+
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        this.hideModal();
+                    }
+                });
+
                 // 游戏控制按钮
                 document.getElementById('pauseBtn').addEventListener('click', () => {
                     this.togglePause();
@@ -718,6 +922,10 @@
                 document.getElementById('backToMenuFromOverBtn').addEventListener('click', () => {
                     this.returnToMenu();
                 });
+
+                document.getElementById('leaderboardFromOverBtn').addEventListener('click', () => {
+                    this.showLeaderboard();
+                });
                 
                 // 鼠标事件 - 修复：使用document监听，确保鼠标移出canvas时仍能跟踪
                 document.addEventListener('mousemove', (e) => {
@@ -740,6 +948,7 @@
             }
             
             startGame() {
+                this.ensurePlayerName();
                 // 重置游戏状态
                 this.gameState = 'playing';
                 this.score = 0;
@@ -764,6 +973,7 @@
                 };
                 
                 // 重置统计数据
+                // 注意：不要在这里重置 playerName，否则排行榜会被覆盖成“游客”
                 this.knowledgeStats = {
                     'A-T': { total: 0, correct: 0 },
                     'A-U': { total: 0, correct: 0 },
@@ -792,6 +1002,119 @@
                 this.switchScreen('gameScreen');
             }
             
+
+            ensurePlayerName() {
+                const savedName = localStorage.getItem('dna-game-player-name');
+                if (savedName) {
+                    this.playerName = savedName;
+                    return;
+                }
+                const inputName = window.prompt('请输入玩家名称（用于本地排行榜展示）', '玩家1');
+                this.playerName = (inputName || '游客').trim().slice(0, 12) || '游客';
+                localStorage.setItem('dna-game-player-name', this.playerName);
+            }
+
+            showModal(title, html) {
+                document.getElementById('modalTitle').textContent = title;
+                document.getElementById('modalBody').innerHTML = html;
+                document.getElementById('infoModal').classList.add('show');
+                document.getElementById('infoModal').setAttribute('aria-hidden', 'false');
+            }
+
+            hideModal() {
+                document.getElementById('infoModal').classList.remove('show');
+                document.getElementById('infoModal').setAttribute('aria-hidden', 'true');
+            }
+
+            showToast(message) {
+                const toast = document.getElementById('toast');
+                toast.textContent = message;
+                toast.classList.add('show');
+                clearTimeout(this.toastTimer);
+                this.toastTimer = setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 1800);
+            }
+
+            async copyShareLink() {
+                const link = window.location.href;
+                try {
+                    await navigator.clipboard.writeText(link);
+                    this.showToast('链接已复制，快发给同学试玩吧');
+                } catch (error) {
+                    this.showToast('复制失败，请手动复制当前网址');
+                }
+            }
+
+            getLeaderboard() {
+                try {
+                    return JSON.parse(localStorage.getItem(this.leaderboardKey) || '[]');
+                } catch (error) {
+                    return [];
+                }
+            }
+
+            saveLeaderboardRecord() {
+                const accuracy = this.pairCount > 0 ? Math.round((this.correctPairs / this.pairCount) * 100) : 0;
+                const record = {
+                    name: this.playerName || '游客',
+                    score: this.score,
+                    accuracy,
+                    difficulty: this.difficulty,
+                    time: new Date().toLocaleString('zh-CN')
+                };
+
+                const list = this.getLeaderboard();
+                list.push(record);
+                list.sort((a, b) => b.score - a.score || b.accuracy - a.accuracy);
+                localStorage.setItem(this.leaderboardKey, JSON.stringify(list.slice(0, 10)));
+            }
+
+            showLeaderboard() {
+                const list = this.getLeaderboard();
+                if (!list.length) {
+                    this.showModal('本地排行榜', '<div class="empty-state">还没有成绩记录，先来打一局吧。</div>');
+                    return;
+                }
+
+                const difficultyMap = {
+                    easy: '初级',
+                    medium: '中级',
+                    hard: '高级'
+                };
+
+                const html = `
+                    <div class="leaderboard-list">
+                        ${list.map((item, index) => `
+                            <div class="leaderboard-item">
+                                <div class="leaderboard-rank">#${index + 1}</div>
+                                <div>
+                                    <div>${item.name}</div>
+                                    <div class="leaderboard-meta">${difficultyMap[item.difficulty] || item.difficulty} · ${item.time}</div>
+                                </div>
+                                <div>${item.accuracy}%</div>
+                                <div>${item.score}分</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                this.showModal('本地排行榜', html);
+            }
+
+            showAbout() {
+                const html = `
+                    <div class="about-content">
+                        <p><strong>项目名称：</strong>碱基配对大作战</p>
+                        <p><strong>项目定位：</strong>基于 HTML5 Canvas 的高中生物教学互动小游戏，用游戏化方式帮助玩家掌握 DNA / RNA 碱基互补配对规则。</p>
+                        <p><strong>核心玩法：</strong>根据当前碱基选择正确配对对象，在不同难度下完成 DNA 配对、RNA 转录与混合模式挑战。</p>
+                        <p><strong>项目亮点：</strong>包含难度分级、道具系统、知识点提示、局后掌握报告，以及本地排行榜与在线部署展示能力。</p>
+                        <p><strong>适用场景：</strong>课堂演示、课程作业、毕设答辩展示、同学试玩分享。</p>
+                    </div>
+                `;
+                this.showModal('项目介绍', html);
+            }
+
+
             updateMode() {
                 // 模式切换逻辑
                 let oldMode = this.mode;
@@ -1239,6 +1562,7 @@
             }
             
             showGameOverScreen(title) {
+                this.saveLeaderboardRecord();
                 // 更新游戏结束界面
                 document.getElementById('gameOverTitle').textContent = title;
                 document.getElementById('finalScore').textContent = this.score;
