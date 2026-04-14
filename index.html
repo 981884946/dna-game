@@ -560,6 +560,77 @@
             transform: translateX(-50%) translateY(0);
         }
 
+
+        .player-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 18px;
+            color: #ccd6f6;
+        }
+
+        .player-bar-label {
+            color: #8892b0;
+            font-size: 14px;
+        }
+
+        .player-bar-name {
+            padding: 8px 14px;
+            border-radius: 999px;
+            background: rgba(100, 255, 218, 0.12);
+            color: #64ffda;
+            border: 1px solid rgba(100, 255, 218, 0.35);
+            font-weight: bold;
+            min-width: 72px;
+            text-align: center;
+        }
+
+        .mini-btn {
+            min-width: auto;
+            padding: 8px 14px;
+            font-size: 14px;
+        }
+
+        .leaderboard-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .leaderboard-stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .leaderboard-pill {
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.06);
+            color: #ccd6f6;
+            font-size: 13px;
+        }
+
+        .leaderboard-item.current-player {
+            border: 1px solid rgba(100, 255, 218, 0.45);
+            box-shadow: 0 0 0 1px rgba(100,255,218,0.12) inset;
+        }
+
+        .leaderboard-rank.medal {
+            font-size: 22px;
+        }
+
+        .danger-btn {
+            border: 1px solid rgba(255, 107, 107, 0.45);
+            color: #ff9a9a;
+            background: rgba(255, 107, 107, 0.08);
+        }
+
         /* 响应式设计 */
         @media (max-width: 900px) {
             #gameCanvas {
@@ -667,6 +738,11 @@
             <div class="game-description">
                 <p>休闲益智类游戏，严格贴合人教版高中生物碱基互补配对核心知识点</p>
                 <p>DNA中 A-T、C-G；转录中 A-U</p>
+            </div>
+            <div class="player-bar">
+                <span class="player-bar-label">当前玩家</span>
+                <span id="currentPlayerName" class="player-bar-name">游客</span>
+                <button id="changeNameBtn" class="secondary-btn mini-btn">修改名字</button>
             </div>
             <div class="difficulty-selection">
                 <h3>选择难度</h3>
@@ -1004,6 +1080,9 @@ class BasePairGame {
             
             init() {
                 this.setupEventListeners();
+                const savedName = localStorage.getItem('dna-game-player-name');
+                if (savedName) this.playerName = savedName;
+                this.updatePlayerNameUI();
                 this.startGameLoop();
             }
             
@@ -1047,6 +1126,16 @@ class BasePairGame {
 
                 document.getElementById('shareBtn').addEventListener('click', () => {
                     this.copyShareLink();
+                });
+
+                document.getElementById('changeNameBtn').addEventListener('click', () => {
+                    this.changePlayerName(true);
+                });
+
+                document.getElementById('modalBody').addEventListener('click', (e) => {
+                    if (e.target && e.target.id === 'clearLeaderboardBtn') {
+                        this.clearLeaderboard();
+                    }
                 });
 
                 document.getElementById('closeModalBtn').addEventListener('click', () => {
@@ -1146,8 +1235,7 @@ class BasePairGame {
                 };
                 
                 // 重置统计数据
-                this.playerName = '游客';
-                this.leaderboardKey = 'dna-game-leaderboard';
+                this.updatePlayerNameUI();
                 this.knowledgeStats = {
                     'A-T': { total: 0, correct: 0 },
                     'A-U': { total: 0, correct: 0 },
@@ -1175,17 +1263,41 @@ class BasePairGame {
                 // 切换屏幕
                 this.switchScreen('gameScreen');
             }
-            
-
             ensurePlayerName() {
                 const savedName = localStorage.getItem('dna-game-player-name');
                 if (savedName) {
                     this.playerName = savedName;
+                    this.updatePlayerNameUI();
                     return;
                 }
                 const inputName = window.prompt('请输入玩家名称（用于本地排行榜展示）', '玩家1');
                 this.playerName = (inputName || '游客').trim().slice(0, 12) || '游客';
                 localStorage.setItem('dna-game-player-name', this.playerName);
+                this.updatePlayerNameUI();
+            }
+
+            changePlayerName(forcePrompt = false) {
+                const defaultName = this.playerName && this.playerName !== '游客' ? this.playerName : '玩家1';
+                const inputName = window.prompt('修改玩家名称（用于本地排行榜展示）', defaultName);
+                if (inputName === null && !forcePrompt) return;
+                if (inputName === null) return;
+                this.playerName = inputName.trim().slice(0, 12) || '游客';
+                localStorage.setItem('dna-game-player-name', this.playerName);
+                this.updatePlayerNameUI();
+                this.showToast(`当前玩家：${this.playerName}`);
+            }
+
+            updatePlayerNameUI() {
+                const nameEl = document.getElementById('currentPlayerName');
+                if (nameEl) nameEl.textContent = this.playerName || '游客';
+            }
+
+            clearLeaderboard() {
+                const ok = window.confirm('确定要清空本地排行榜吗？这个操作无法撤销。');
+                if (!ok) return;
+                localStorage.removeItem(this.leaderboardKey);
+                this.showToast('本地排行榜已清空');
+                this.showLeaderboard();
             }
 
             showModal(title, html) {
@@ -1244,27 +1356,47 @@ class BasePairGame {
                 list.sort((a, b) => b.score - a.score || b.accuracy - a.accuracy);
                 localStorage.setItem(this.leaderboardKey, JSON.stringify(list.slice(0, 10)));
             }
-
             showLeaderboard() {
                 const list = this.getLeaderboard();
-                if (!list.length) {
-                    this.showModal('本地排行榜', '<div class="empty-state">还没有成绩记录，先来打一局吧。</div>');
-                    return;
-                }
-
                 const difficultyMap = {
                     easy: '初级',
                     medium: '中级',
                     hard: '高级'
                 };
 
+                if (!list.length) {
+                    this.showModal('本地排行榜', `
+                        <div class="leaderboard-toolbar">
+                            <div class="leaderboard-stats">
+                                <span class="leaderboard-pill">当前玩家：${this.playerName || '游客'}</span>
+                                <span class="leaderboard-pill">榜单记录数：0</span>
+                            </div>
+                        </div>
+                        <div class="empty-state">还没有成绩记录，先来打一局吧。</div>
+                    `);
+                    return;
+                }
+
+                const topScore = list[0]?.score || 0;
+                const topAccuracy = list.reduce((max, item) => Math.max(max, item.accuracy || 0), 0);
+                const medal = (index) => ['🥇', '🥈', '🥉'][index] || `#${index + 1}`;
+
                 const html = `
+                    <div class="leaderboard-toolbar">
+                        <div class="leaderboard-stats">
+                            <span class="leaderboard-pill">当前玩家：${this.playerName || '游客'}</span>
+                            <span class="leaderboard-pill">榜单记录数：${list.length}</span>
+                            <span class="leaderboard-pill">最高分：${topScore}</span>
+                            <span class="leaderboard-pill">最高正确率：${topAccuracy}%</span>
+                        </div>
+                        <button id="clearLeaderboardBtn" class="secondary-btn mini-btn danger-btn">清空排行榜</button>
+                    </div>
                     <div class="leaderboard-list">
                         ${list.map((item, index) => `
-                            <div class="leaderboard-item">
-                                <div class="leaderboard-rank">#${index + 1}</div>
+                            <div class="leaderboard-item ${item.name === (this.playerName || '游客') ? 'current-player' : ''}">
+                                <div class="leaderboard-rank ${index < 3 ? 'medal' : ''}">${medal(index)}</div>
                                 <div>
-                                    <div>${item.name}</div>
+                                    <div>${item.name}${item.name === (this.playerName || '游客') ? '（你）' : ''}</div>
                                     <div class="leaderboard-meta">${difficultyMap[item.difficulty] || item.difficulty} · 连击x${item.bestCombo || 0} · ${item.time}</div>
                                 </div>
                                 <div>${item.accuracy}%</div>
