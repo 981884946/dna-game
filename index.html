@@ -1,0 +1,1614 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>碱基配对大作战</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #0a192f;
+            color: #ffffff;
+            overflow: hidden;
+        }
+
+        .game-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        /* 屏幕通用样式 */
+        .screen {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            background: linear-gradient(135deg, #0a192f 0%, #112240 100%);
+            z-index: 50;
+            overflow: hidden;
+            opacity: 0;
+            transition: all 0.3s ease-in-out;
+            transform: scale(0.95);
+        }
+
+        .screen.active {
+            display: flex;
+            z-index: 200;
+            overflow-y: auto;
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* 游戏主界面特殊处理 */
+        #gameScreen {
+            z-index: 100;
+        }
+
+        /* 开始界面样式 */
+        #startScreen h1 {
+            font-size: 48px;
+            color: #64ffda;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(100, 255, 218, 0.5);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        .game-description {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 18px;
+            color: #8892b0;
+            max-width: 600px;
+        }
+
+        .difficulty-selection {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .difficulty-selection h3 {
+            font-size: 24px;
+            color: #ccd6f6;
+            margin-bottom: 10px;
+        }
+
+        .difficulty-btn {
+            background: linear-gradient(135deg, #64ffda 0%, #00bfa5 100%);
+            color: #0a192f;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 300px;
+            text-align: center;
+        }
+
+        .difficulty-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(100, 255, 218, 0.3);
+        }
+
+        .difficulty-btn:active {
+            transform: translateY(0);
+        }
+
+        /* 游戏主界面样式 */
+        #gameScreen {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .game-header {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .game-info {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .current-base-info {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            color: #ccd6f6;
+        }
+
+        .base-display {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            line-height: 40px;
+            text-align: center;
+            border-radius: 50%;
+            margin: 0 10px;
+            font-size: 28px;
+            font-weight: bold;
+            animation: glow 1.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 5px rgba(100, 255, 218, 0.5);
+            }
+            to {
+                box-shadow: 0 0 20px rgba(100, 255, 218, 0.8), 0 0 30px rgba(100, 255, 218, 0.5);
+            }
+        }
+
+        .game-stats {
+            display: flex;
+            justify-content: space-around;
+            font-size: 18px;
+            color: #8892b0;
+        }
+
+        .game-stats div {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .game-stats span {
+            color: #64ffda;
+            font-weight: bold;
+        }
+
+        .game-main {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        #gameCanvas {
+            background: linear-gradient(180deg, #0a192f 0%, #112240 100%);
+            border-radius: 10px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(100, 255, 218, 0.3);
+        }
+
+        .knowledge-tip {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(100, 255, 218, 0.9);
+            color: #0a192f;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            z-index: 1000;
+            display: none;
+            animation: fadeInOut 1s ease-in-out;
+        }
+
+        @keyframes fadeInOut {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            20%, 80% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+        }
+
+        .game-footer {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+        }
+
+        .control-btn {
+            background: linear-gradient(135deg, #64ffda 0%, #00bfa5 100%);
+            color: #0a192f;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(100, 255, 218, 0.3);
+        }
+
+        .control-btn:active {
+            transform: translateY(0);
+        }
+
+        /* 暂停界面样式 */
+        #pauseScreen h2 {
+            font-size: 36px;
+            color: #ccd6f6;
+            margin-bottom: 30px;
+        }
+
+        .pause-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+
+        /* 游戏结束界面样式 */
+        #gameOverScreen h2 {
+            font-size: 36px;
+            color: #ff6b6b;
+            margin-bottom: 20px;
+        }
+
+        .final-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+            font-size: 20px;
+            color: #8892b0;
+            text-align: center;
+        }
+
+        .final-stats div {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .final-stats span {
+            color: #64ffda;
+            font-weight: bold;
+            font-size: 24px;
+        }
+
+        .knowledge-report {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 600px;
+            text-align: center;
+            color: #8892b0;
+            max-height: 200px;
+            overflow-y: auto;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 滚动条样式 */
+        .knowledge-report::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .knowledge-report::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .knowledge-report::-webkit-scrollbar-thumb {
+            background: rgba(100, 255, 218, 0.5);
+            border-radius: 4px;
+        }
+
+        .knowledge-report::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 255, 218, 0.7);
+        }
+
+        .game-over-options {
+            display: flex;
+            gap: 20px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .game-over-options .control-btn {
+            min-width: 180px;
+            padding: 15px 30px;
+            font-size: 18px;
+        }
+
+        /* 碱基颜色样式 */
+        .base-A {
+            background-color: #90caf9;
+            color: #0d47a1;
+            border: 2px solid white;
+        }
+
+        .base-C {
+            background-color: #4fc3f7;
+            color: #01579b;
+            border: 2px solid white;
+        }
+
+        .base-G {
+            background-color: #29b6f6;
+            color: #0277bd;
+            border: 2px solid white;
+        }
+
+        .base-T {
+            background-color: #ef5350;
+            color: #b71c1c;
+            border: 2px solid black;
+        }
+
+        .base-U {
+            background-color: #ffeb3b;
+            color: #f57f17;
+            border: 2px solid black;
+        }
+
+        .base-fake {
+            background-color: #9e9e9e;
+            color: #212121;
+            border: 2px solid black;
+        }
+
+        /* 道具样式 */
+        .prop-lock {
+            background-color: #ffd700;
+            color: #b8860b;
+            border: 2px solid gold;
+        }
+
+        .prop-slow {
+            background-color: #81c784;
+            color: #2e7d32;
+            border: 2px solid lightgreen;
+        }
+
+        .prop-life {
+            background-color: #e91e63;
+            color: #880e4f;
+            border: 2px solid pink;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 900px) {
+            #gameCanvas {
+                width: 100%;
+                height: auto;
+                max-height: 70vh;
+            }
+            
+            .game-stats {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            
+            .game-stats div {
+                flex: 1 1 45%;
+                justify-content: center;
+            }
+            
+            .current-base-info {
+                font-size: 20px;
+            }
+            
+            .base-display {
+                width: 35px;
+                height: 35px;
+                line-height: 35px;
+                font-size: 24px;
+            }
+            
+            #startScreen h1 {
+                font-size: 36px;
+            }
+            
+            .difficulty-btn {
+                min-width: 250px;
+                font-size: 16px;
+                padding: 12px 25px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            #startScreen h1 {
+                font-size: 28px;
+            }
+            
+            .game-description {
+                font-size: 16px;
+            }
+            
+            .difficulty-btn {
+                min-width: 200px;
+                font-size: 14px;
+                padding: 10px 20px;
+            }
+            
+            .game-header {
+                padding: 10px 15px;
+            }
+            
+            .game-stats {
+                font-size: 16px;
+            }
+            
+            .final-stats {
+                font-size: 18px;
+            }
+            
+            .final-stats span {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景音乐 -->
+    <audio id="backgroundMusic" loop autoplay volume="0.3">
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+    </audio>
+    
+    <!-- 音乐控制按钮 -->
+    <div class="music-control" style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
+        <button id="musicToggle" class="control-btn" style="background: rgba(100, 255, 218, 0.2); color: #64ffda; border: 1px solid #64ffda;">
+            🔊 音乐开关
+        </button>
+    </div>
+    
+    <div class="game-container">
+        <!-- 游戏开始界面 -->
+        <div id="startScreen" class="screen active">
+            <h1>碱基配对大作战</h1>
+            <div class="game-description">
+                <p>休闲益智类游戏，严格贴合人教版高中生物碱基互补配对核心知识点</p>
+                <p>DNA中 A-T、C-G；转录中 A-U</p>
+            </div>
+            <div class="difficulty-selection">
+                <h3>选择难度</h3>
+                <button class="difficulty-btn" data-difficulty="easy">初级 - DNA配对入门</button>
+                <button class="difficulty-btn" data-difficulty="medium">中级 - 转录配对挑战</button>
+                <button class="difficulty-btn" data-difficulty="hard">高级 - 中心法则混合战</button>
+            </div>
+        </div>
+
+        <!-- 游戏主界面 -->
+        <div id="gameScreen" class="screen">
+            <header class="game-header">
+                <div class="game-info">
+                    <div class="current-base-info">
+                        <span>当前碱基：</span>
+                        <span id="currentBase" class="base-display">A</span>
+                        <span> → 配对目标：</span>
+                        <span id="targetBases">T/U</span>
+                    </div>
+                    <div class="game-stats">
+                        <div class="score-info">分数：<span id="score">0</span></div>
+                        <div class="lives-info">生命值：<span id="lives">3</span></div>
+                        <div class="level-info">关卡：<span id="level">1</span></div>
+                        <div class="mode-info">模式：<span id="mode">DNA</span></div>
+                    </div>
+                </div>
+            </header>
+
+            <main class="game-main">
+                <canvas id="gameCanvas" width="800" height="600"></canvas>
+                <div id="knowledgeTip" class="knowledge-tip"></div>
+            </main>
+
+            <footer class="game-footer">
+                <div class="controls">
+                    <button id="pauseBtn" class="control-btn">暂停</button>
+                    <button id="restartBtn" class="control-btn">重新开始</button>
+                </div>
+            </footer>
+        </div>
+
+        <!-- 游戏暂停界面 -->
+        <div id="pauseScreen" class="screen">
+            <h2>游戏暂停</h2>
+            <div class="pause-options">
+                <button id="resumeBtn" class="control-btn">继续游戏</button>
+                <button id="restartFromPauseBtn" class="control-btn">重新开始</button>
+                <button id="backToMenuBtn" class="control-btn">返回主菜单</button>
+            </div>
+        </div>
+
+        <!-- 游戏结束界面 -->
+        <div id="gameOverScreen" class="screen">
+            <h2 id="gameOverTitle">游戏结束</h2>
+            <div class="final-stats">
+                <div>最终分数：<span id="finalScore">0</span></div>
+                <div>配对次数：<span id="pairCount">0</span></div>
+                <div>正确率：<span id="accuracy">0%</span></div>
+            </div>
+            <div id="knowledgeReport" class="knowledge-report"></div>
+            <div class="game-over-options">
+                <button id="restartGameBtn" class="control-btn">重新开始</button>
+                <button id="backToMenuFromOverBtn" class="control-btn">返回主菜单</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 碱基配对大作战游戏主控制文件
+        class BasePairGame {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.gameState = 'menu'; // menu, playing, paused, gameOver
+                this.difficulty = 'easy'; // easy, medium, hard
+                
+                // 游戏核心属性
+                this.currentBase = 'A';
+                this.targetBases = '';
+                this.score = 0;
+                this.lives = 3;
+                this.time = 0;
+                this.level = 1;
+                this.mode = 'DNA'; // DNA, RNA, mixed
+                this.lastLifePropScore = 0; // 上次生成生命补给包时的分数
+                
+                // 游戏元素
+                this.playerBase = null;
+                this.fallingBases = [];
+                this.props = [];
+                this.particles = [];
+                
+                // 游戏规则
+                this.pairingRules = {
+                    DNA: { A: 'T', T: 'A', C: 'G', G: 'C' },
+                    RNA: { A: 'U', U: 'A', C: 'G', G: 'C' }
+                };
+                
+                // 游戏统计
+                this.pairCount = 0;
+                this.correctPairs = 0;
+                this.knowledgeStats = {
+                    'A-T': { total: 0, correct: 0 },
+                    'A-U': { total: 0, correct: 0 },
+                    'C-G': { total: 0, correct: 0 },
+                    'G-C': { total: 0, correct: 0 },
+                    'T-A': { total: 0, correct: 0 },
+                    'U-A': { total: 0, correct: 0 }
+                };
+                
+                // 游戏速度参数（优化难度递增机制）
+                this.speedParams = {
+                    easy: { initial: 3, increment: 0.08, max: 6, fakeSpeedMultiplier: 1 },
+                    medium: { initial: 4, increment: 0.12, max: 9, fakeSpeedMultiplier: 1.15 },
+                    hard: { initial: 4.5, increment: 0.13, max: 10, fakeSpeedMultiplier: 1.2 } // 降低中心法则模式速度
+                };
+                this.currentSpeed = this.speedParams[this.difficulty].initial;
+                this.speedIncrementCount = 0;
+                
+                // 道具系统
+                this.propDropChance = {
+                    easy: { lock: 0.35, slow: 0.35, life: 0.15, fail: 0.15 },
+                    medium: { lock: 0.3, slow: 0.35, life: 0.1, fail: 0.25 },
+                    hard: { lock: 0.25, slow: 0.3, life: 0.1, fail: 0.35 }
+                };
+                this.propActive = {
+                    lock: false,
+                    lockTime: 0,
+                    slow: false,
+                    slowTime: 0,
+                    slowMultiplier: 0.5 // 减速效果倍数
+                };
+                
+                // 生成间隔
+                this.spawnTimer = 0;
+                this.spawnInterval = 60; // 每60帧生成一个碱基
+                this.baseSpawnCounter = 0; // 碱基生成计数器，用于难度递增
+                
+                // 鼠标/触摸位置
+                this.mouseX = this.canvas.width / 2;
+                this.touchX = this.canvas.width / 2;
+                this.lastMouseX = this.canvas.width / 2; // 记录上一帧鼠标位置
+                
+                this.init();
+            }
+            
+            init() {
+                this.setupEventListeners();
+                this.startGameLoop();
+            }
+            
+            setupEventListeners() {
+                // 音乐控制
+                const musicToggle = document.getElementById('musicToggle');
+                const backgroundMusic = document.getElementById('backgroundMusic');
+                
+                if (musicToggle && backgroundMusic) {
+                    musicToggle.addEventListener('click', () => {
+                        if (backgroundMusic.paused) {
+                            backgroundMusic.play();
+                            musicToggle.innerHTML = '🔊 音乐开关';
+                        } else {
+                            backgroundMusic.pause();
+                            musicToggle.innerHTML = '🔇 音乐开关';
+                        }
+                    });
+                    
+                    // 页面加载时自动播放音乐（如果浏览器允许）
+                    backgroundMusic.play().catch(error => {
+                        console.log('自动播放被阻止，需要用户交互才能播放音乐');
+                    });
+                }
+                
+                // 难度选择
+                document.querySelectorAll('.difficulty-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        this.difficulty = e.target.dataset.difficulty;
+                        this.startGame();
+                    });
+                });
+                
+                // 游戏控制按钮
+                document.getElementById('pauseBtn').addEventListener('click', () => {
+                    this.togglePause();
+                });
+                
+                document.getElementById('restartBtn').addEventListener('click', () => {
+                    this.restartGame();
+                });
+                
+                document.getElementById('resumeBtn').addEventListener('click', () => {
+                    this.resumeGame();
+                });
+                
+                document.getElementById('restartFromPauseBtn').addEventListener('click', () => {
+                    this.restartGame();
+                });
+                
+                document.getElementById('backToMenuBtn').addEventListener('click', () => {
+                    this.returnToMenu();
+                });
+                
+                document.getElementById('restartGameBtn').addEventListener('click', () => {
+                    this.restartGame();
+                });
+                
+                document.getElementById('backToMenuFromOverBtn').addEventListener('click', () => {
+                    this.returnToMenu();
+                });
+                
+                // 鼠标事件 - 修复：使用document监听，确保鼠标移出canvas时仍能跟踪
+                document.addEventListener('mousemove', (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    this.mouseX = e.clientX - rect.left;
+                });
+                
+                // 触摸事件
+                this.canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    const rect = this.canvas.getBoundingClientRect();
+                    this.touchX = e.touches[0].clientX - rect.left;
+                    this.mouseX = this.touchX; // 确保触摸和鼠标使用相同的位置变量
+                });
+                
+                // 窗口大小变化
+                window.addEventListener('resize', () => {
+                    this.handleResize();
+                });
+            }
+            
+            startGame() {
+                // 重置游戏状态
+                this.gameState = 'playing';
+                this.score = 0;
+                this.lives = 3;
+                this.time = 0; // 移除时间限制，使用0表示无时间限制
+                this.level = 1;
+                this.currentSpeed = this.speedParams[this.difficulty].initial;
+                this.speedIncrementCount = 0;
+                this.pairCount = 0;
+                this.correctPairs = 0;
+                this.gameTime = 0; // 游戏运行时间（用于随时间加速）
+                this.baseSpawnCounter = 0; // 重置碱基生成计数器
+                this.lastLifePropScore = 0; // 重置生命补给包分数记录
+                
+                // 重置道具效果
+                this.propActive = {
+                    lock: false,
+                    lockTime: 0,
+                    slow: false,
+                    slowTime: 0,
+                    slowMultiplier: 0.5
+                };
+                
+                // 重置统计数据
+                this.knowledgeStats = {
+                    'A-T': { total: 0, correct: 0 },
+                    'A-U': { total: 0, correct: 0 },
+                    'C-G': { total: 0, correct: 0 },
+                    'G-C': { total: 0, correct: 0 },
+                    'T-A': { total: 0, correct: 0 },
+                    'U-A': { total: 0, correct: 0 }
+                };
+                
+                // 设置初始模式
+                this.mode = this.difficulty === 'easy' ? 'DNA' : this.difficulty === 'medium' ? 'RNA' : 'DNA';
+                this.updateMode();
+                
+                // 初始化玩家碱基
+                this.playerBase = new PlayerBase(this.canvas.width / 2, this.canvas.height - 60, this.currentBase);
+                
+                // 清空游戏元素
+                this.fallingBases = [];
+                this.props = [];
+                this.particles = [];
+                
+                // 更新UI
+                this.updateUI();
+                
+                // 切换屏幕
+                this.switchScreen('gameScreen');
+            }
+            
+            updateMode() {
+                // 模式切换逻辑
+                let oldMode = this.mode;
+                
+                if (this.difficulty === 'easy') {
+                    // 初级难度固定DNA模式
+                    this.mode = 'DNA';
+                } else if (this.difficulty === 'medium') {
+                    // 中级难度固定RNA模式，确保U碱基出现
+                    this.mode = 'RNA';
+                } else {
+                    // 高级难度随机切换模式（30%概率）
+                    if (Math.random() < 0.3) {
+                        this.mode = this.mode === 'DNA' ? 'RNA' : 'DNA';
+                    }
+                }
+                
+                // 如果模式发生变化，显示模式切换提示
+                if (oldMode !== this.mode) {
+                    this.showKnowledgeTip(`模式切换：${this.mode === 'DNA' ? 'DNA' : 'RNA'} 模式！`);
+                }
+                
+                this.updateTargetBases();
+                
+                // 更新UI，显示当前模式
+                document.getElementById('mode').textContent = this.mode === 'DNA' ? 'DNA' : 'RNA';
+            }
+            
+            updateTargetBases() {
+                // 根据当前模式和碱基更新目标碱基
+                const rules = this.pairingRules[this.mode];
+                this.targetBases = rules[this.currentBase] || '';
+                
+                // 更新UI
+                document.getElementById('targetBases').textContent = this.targetBases;
+            }
+            
+            switchCurrentBase() {
+                // 随机切换当前碱基，根据当前模式和难度
+                let possibleBases;
+                
+                if (this.difficulty === 'easy') {
+                    // 初级难度只有DNA模式，不使用U
+                    possibleBases = ['A', 'T', 'C', 'G'];
+                } else {
+                    // 中级和高级难度根据当前模式选择碱基
+                    if (this.mode === 'DNA') {
+                        // DNA模式：A/T/C/G
+                        possibleBases = ['A', 'T', 'C', 'G'];
+                    } else {
+                        // RNA模式：A/U/C/G
+                        possibleBases = ['A', 'U', 'C', 'G'];
+                    }
+                }
+                
+                this.currentBase = possibleBases[Math.floor(Math.random() * possibleBases.length)];
+                this.playerBase.changeBase(this.currentBase);
+                this.updateTargetBases();
+                
+                // 更新UI
+                const currentBaseElement = document.getElementById('currentBase');
+                currentBaseElement.textContent = this.currentBase;
+                currentBaseElement.className = `base-display base-${this.currentBase}`;
+            }
+            
+            spawnBase() {
+                // 确定生成的碱基类型，根据当前模式和难度
+                let possibleBases;
+                
+                if (this.mode === 'DNA') {
+                    // DNA模式：A-T, C-G
+                    possibleBases = ['A', 'T', 'C', 'G'];
+                } else {
+                    // RNA模式：A-U, C-G
+                    possibleBases = ['A', 'U', 'C', 'G'];
+                }
+                
+                // 高级难度混合模式下，有概率额外生成干扰碱基
+                if (this.difficulty === 'hard') {
+                    if (this.mode === 'DNA' && Math.random() < 0.2) {
+                        // DNA模式下20%概率生成U（作为干扰）
+                        possibleBases.push('U');
+                    } else if (this.mode === 'RNA' && Math.random() < 0.2) {
+                        // RNA模式下20%概率生成T（作为干扰）
+                        possibleBases.push('T');
+                    }
+                }
+                
+                // 优化：随机生成数量，单次最多3个碱基
+                let spawnCount;
+                const randomFactor = Math.random();
+                
+                if (this.gameTime > 1800) {
+                    // 30秒后：1-3个
+                    spawnCount = randomFactor < 0.3 ? 1 : (randomFactor < 0.7 ? 2 : 3);
+                } else if (this.gameTime > 1200) {
+                    // 20-30秒：1-3个
+                    spawnCount = randomFactor < 0.3 ? 1 : (randomFactor < 0.7 ? 2 : 3);
+                } else if (this.gameTime > 600) {
+                    // 10-20秒：1-2个
+                    spawnCount = randomFactor < 0.6 ? 1 : 2;
+                } else {
+                    // 前10秒：1-2个
+                    spawnCount = randomFactor < 0.8 ? 1 : 2;
+                }
+                
+                // 随机选择不同的生成口（5个），确保至少有一条路径能通过
+                const allPositions = [0, 1, 2, 3, 4];
+                const spawnPositions = [];
+                
+                // 确保生成的碱基分布合理，至少有一个位置是可用的
+                for (let i = 0; i < spawnCount; i++) {
+                    if (allPositions.length === 0) break;
+                    const randomIndex = Math.floor(Math.random() * allPositions.length);
+                    spawnPositions.push(allPositions.splice(randomIndex, 1)[0]);
+                }
+                
+                // 从每个选中的生成口生成碱基，增加垂直间距
+                spawnPositions.forEach((pos, index) => {
+                    const spawnX = (pos + 0.5) * (this.canvas.width / 5);
+                    const spawnY = -30 - (index * 50); // 增加垂直间距，每个碱基间隔50像素
+                    const baseType = possibleBases[Math.floor(Math.random() * possibleBases.length)];
+                    
+                    // 生成假碱基的概率 - 优化：减少假碱基数量
+                    let fakeChance = 0;
+                    if (this.difficulty === 'medium') fakeChance = 0.1;
+                    else if (this.difficulty === 'hard') fakeChance = 0.15;
+                    
+                    const isFake = Math.random() < fakeChance;
+                    
+                    // 新生成的碱基初始速度考虑当前减速效果
+                    const initialSpeed = this.propActive.slow ? this.currentSpeed * this.propActive.slowMultiplier : this.currentSpeed;
+                    
+                    if (isFake) {
+                        this.fallingBases.push(new FallingBase(spawnX, spawnY, 'fake', initialSpeed));
+                    } else {
+                        this.fallingBases.push(new FallingBase(spawnX, spawnY, baseType, initialSpeed));
+                    }
+                });
+            }
+            
+            spawnProp() {
+                // 确定道具类型
+                const propTypes = ['lock', 'slow', 'life', 'fail'];
+                const propChances = this.propDropChance[this.difficulty];
+                
+                let random = Math.random();
+                let propType = 'fail';
+                
+                if (random < propChances.lock) {
+                    propType = 'lock';
+                } else if (random < propChances.lock + propChances.slow) {
+                    propType = 'slow';
+                } else if (random < propChances.lock + propChances.slow + propChances.life) {
+                    propType = 'life';
+                }
+                
+                if (propType !== 'fail') {
+                    const spawnX = (Math.floor(Math.random() * 5) + 0.5) * (this.canvas.width / 5);
+                    this.props.push(new Prop(spawnX, -30, propType, this.currentSpeed));
+                }
+            }
+            
+            update() {
+                if (this.gameState !== 'playing') return;
+                
+                // 更新游戏时间（用于随时间加速和提高生成频率）
+                this.gameTime++;
+                
+                // 优化：基于分数的动态加速，更平滑的难度递增
+                if (this.gameTime % 120 === 0) { // 每2秒检查一次
+                    // 根据当前分数调整速度，确保游戏节奏平滑
+                    const speedIncrement = this.speedParams[this.difficulty].increment;
+                    this.currentSpeed = Math.min(
+                        this.speedParams[this.difficulty].max,
+                        this.currentSpeed + speedIncrement
+                    );
+                }
+                
+                // 每得分100出现一个生命补给包
+                const currentScoreInterval = Math.floor(this.score / 100);
+                const lastScoreInterval = Math.floor(this.lastLifePropScore / 100);
+                if (currentScoreInterval > lastScoreInterval && this.lives < 3) {
+                    // 生成生命补给包
+                    const spawnX = (Math.floor(Math.random() * 5) + 0.5) * (this.canvas.width / 5);
+                    this.props.push(new Prop(spawnX, -30, 'life', this.currentSpeed));
+                    this.lastLifePropScore = this.score;
+                }
+                
+                // 优化：基于游戏时间和分数的动态生成间隔
+                let dynamicSpawnInterval = this.spawnInterval;
+                if (this.score > 300) dynamicSpawnInterval = 30; // 300分后每30帧生成一次
+                else if (this.score > 200) dynamicSpawnInterval = 35; // 200分后每35帧生成一次
+                else if (this.score > 100) dynamicSpawnInterval = 45; // 100分后每45帧生成一次
+                else if (this.gameTime > 1200) dynamicSpawnInterval = 40; // 20秒后每40帧生成一次
+                else if (this.gameTime > 600) dynamicSpawnInterval = 50; // 10秒后每50帧生成一次
+                
+                // 优化：平滑的鼠标跟随，带有边界检查
+                let targetX = this.mouseX;
+                // 确保在边界内
+                targetX = Math.max(30, Math.min(this.canvas.width - 30, targetX));
+                
+                // 添加平滑过渡，避免鼠标突然移动导致的生硬感
+                const lerpFactor = 0.15; // 平滑系数，值越大越响应迅速
+                this.playerBase.x += (targetX - this.playerBase.x) * lerpFactor;
+                
+                // 生成碱基
+                this.spawnTimer++;
+                if (this.spawnTimer >= dynamicSpawnInterval) {
+                    this.spawnBase();
+                    this.spawnTimer = 0;
+                    this.baseSpawnCounter++;
+                    
+                    // 每4个碱基有概率生成道具，提高道具出现频率
+                    if (this.baseSpawnCounter % 4 === 0 && Math.random() < 0.25) {
+                        this.spawnProp();
+                    }
+                }
+                
+                // 更新掉落碱基
+                for (let i = this.fallingBases.length - 1; i >= 0; i--) {
+                    const base = this.fallingBases[i];
+                    
+                    // 动态更新基础速度，确保减速效果正确应用
+                    const baseSpeed = this.currentSpeed;
+                    const effectiveSpeed = this.propActive.slow ? baseSpeed * this.propActive.slowMultiplier : baseSpeed;
+                    base.y += effectiveSpeed;
+                    
+                    // 添加左右摇摆效果（进一步减小幅度）
+                    base.x = base.originalX + Math.sin(this.gameTime * base.oscillationSpeed + base.oscillationOffset) * 3;
+                    
+                    // 检查碰撞
+                    if (this.checkCollision(this.playerBase, base)) {
+                        this.handleBaseCollision(base);
+                        this.fallingBases.splice(i, 1);
+                    } else if (base.y > this.canvas.height + 30) {
+                        // 碱基掉落到底部，生成错过反馈
+                        if (base.type !== 'fake') {
+                            this.createParticles(base.x, this.canvas.height, 'fail');
+                        }
+                        this.fallingBases.splice(i, 1);
+                    }
+                }
+                
+                // 更新道具
+                for (let i = this.props.length - 1; i >= 0; i--) {
+                    const prop = this.props[i];
+                    
+                    // 应用减速效果
+                    const effectiveSpeed = this.propActive.slow ? prop.speed * this.propActive.slowMultiplier : prop.speed;
+                    prop.y += effectiveSpeed;
+                    
+                    // 检查道具碰撞
+                    if (this.checkCollision(this.playerBase, prop)) {
+                        this.handlePropCollision(prop);
+                        this.props.splice(i, 1);
+                    } else if (prop.y > this.canvas.height + 30) {
+                        this.props.splice(i, 1);
+                    }
+                }
+                
+                // 更新粒子效果
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const particle = this.particles[i];
+                    particle.update();
+                    if (particle.life <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+                
+                // 更新道具效果
+                this.updateProps();
+                
+                // 检查游戏结束条件
+                this.checkGameEnd();
+            }
+            
+            handleBaseCollision(base) {
+                if (base.type === 'fake') {
+                    // 碰到假碱基，扣生命值
+                    this.lives--;
+                    this.showKnowledgeTip('碰到假碱基！生命值-1');
+                    this.updateUI();
+                    return;
+                }
+                
+                // 检查配对
+                const isCorrect = this.targetBases.includes(base.type);
+                const pairKey = `${this.currentBase}-${base.type}`;
+                
+                // 更新统计数据
+                this.pairCount++;
+                if (isCorrect) {
+                    this.correctPairs++;
+                    if (this.knowledgeStats[pairKey]) {
+                        this.knowledgeStats[pairKey].total++;
+                        this.knowledgeStats[pairKey].correct++;
+                    }
+                } else if (this.knowledgeStats[pairKey]) {
+                    this.knowledgeStats[pairKey].total++;
+                }
+                
+                if (isCorrect) {
+                    // 配对成功
+                    this.score += 10;
+                    this.speedIncrementCount++;
+                    
+                    // 检查速度提升
+                    if (this.speedIncrementCount >= 5) {
+                        this.currentSpeed = Math.min(
+                            this.speedParams[this.difficulty].max,
+                            this.currentSpeed * 1.1
+                        );
+                        this.speedIncrementCount = 0;
+                    }
+                    
+                    // 显示知识点提示
+                    this.showKnowledgeTip(this.getKnowledgeTip(this.currentBase, base.type));
+                    
+                    // 生成粒子效果
+                    this.createParticles(this.playerBase.x, this.playerBase.y, 'success');
+                    
+                    // 切换当前碱基（除非锁定）
+                    if (!this.propActive.lock) {
+                        this.switchCurrentBase();
+                    }
+                } else {
+                    // 配对失败
+                    this.lives--;
+                    this.showKnowledgeTip('配对错误！生命值-1');
+                    this.createParticles(this.playerBase.x, this.playerBase.y, 'fail');
+                }
+                
+                this.updateUI();
+            }
+            
+            handlePropCollision(prop) {
+                switch (prop.type) {
+                    case 'lock':
+                        this.propActive.lock = true;
+                        this.propActive.lockTime = 600; // 10秒（60帧/秒）
+                        this.showKnowledgeTip('配对锁定卡生效！10秒内碱基不切换');
+                        break;
+                    case 'slow':
+                        this.propActive.slow = true;
+                        this.propActive.slowTime = 480; // 8秒
+                        this.showKnowledgeTip('减速胶囊生效！8秒内碱基掉落速度减半');
+                        break;
+                    case 'life':
+                        if (this.lives < 3) {
+                            this.lives++;
+                            this.showKnowledgeTip('生命补给包！生命值+1');
+                        } else {
+                            this.score += 50;
+                            this.showKnowledgeTip('生命值已满，获得50分奖励！');
+                        }
+                        this.updateUI();
+                        break;
+                }
+            }
+            
+            updateProps() {
+                // 更新锁定效果
+                if (this.propActive.lock) {
+                    this.propActive.lockTime--;
+                    if (this.propActive.lockTime <= 0) {
+                        this.propActive.lock = false;
+                        this.showKnowledgeTip('配对锁定卡效果结束！');
+                    }
+                }
+                
+                // 更新减速效果
+                if (this.propActive.slow) {
+                    this.propActive.slowTime--;
+                    if (this.propActive.slowTime <= 0) {
+                        this.propActive.slow = false;
+                        this.showKnowledgeTip('减速胶囊效果结束！');
+                    }
+                }
+            }
+            
+            showKnowledgeTip(tip) {
+                const tipElement = document.getElementById('knowledgeTip');
+                tipElement.textContent = tip;
+                tipElement.style.display = 'block';
+                
+                // 1秒后隐藏
+                setTimeout(() => {
+                    tipElement.style.display = 'none';
+                }, 1000);
+            }
+            
+            getKnowledgeTip(base1, base2) {
+                const tips = {
+                    'A-T': '知识点：DNA分子中，腺嘌呤（A）与胸腺嘧啶（T）互补配对！',
+                    'T-A': '知识点：DNA分子中，胸腺嘧啶（T）与腺嘌呤（A）互补配对！',
+                    'C-G': '知识点：DNA/RNA中，胞嘧啶（C）与鸟嘌呤（G）互补配对！',
+                    'G-C': '知识点：DNA/RNA中，鸟嘌呤（G）与胞嘧啶（C）互补配对！',
+                    'A-U': '知识点：转录时，DNA的腺嘌呤（A）与RNA的尿嘧啶（U）互补配对！',
+                    'U-A': '知识点：转录时，RNA的尿嘧啶（U）与DNA的腺嘌呤（A）互补配对！'
+                };
+                
+                return tips[`${base1}-${base2}`] || '配对成功！';
+            }
+            
+            createParticles(x, y, type) {
+                const colors = type === 'success' ? ['#64ffda', '#00bfa5', '#4caf50'] : ['#ff6b6b', '#f44336', '#e53935'];
+                
+                for (let i = 0; i < 8; i++) {
+                    const particle = new Particle(x, y, colors[Math.floor(Math.random() * colors.length)]);
+                    this.particles.push(particle);
+                }
+            }
+            
+            checkCollision(obj1, obj2) {
+                const dx = obj1.x - obj2.x;
+                const dy = obj1.y - obj2.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < (obj1.radius + obj2.radius);
+            }
+            
+            checkGameEnd() {
+                if (this.lives <= 0) {
+                    this.gameOver();
+                } else if (this.score >= this.getScoreTarget()) {
+                    this.gameWin();
+                }
+            }
+            
+            getScoreTarget() {
+                if (this.difficulty === 'hard') {
+                    return 800; // 困难模式通关条件改为800分
+                }
+                return 666; // 其他难度保持666分
+            }
+            
+            gameWin() {
+                this.gameState = 'gameOver';
+                this.showGameOverScreen('恭喜通关！');
+            }
+            
+            gameOver() {
+                this.gameState = 'gameOver';
+                this.showGameOverScreen('游戏结束');
+            }
+            
+            showGameOverScreen(title) {
+                // 更新游戏结束界面
+                document.getElementById('gameOverTitle').textContent = title;
+                document.getElementById('finalScore').textContent = this.score;
+                document.getElementById('pairCount').textContent = this.pairCount;
+                
+                const accuracy = this.pairCount > 0 ? Math.round((this.correctPairs / this.pairCount) * 100) : 0;
+                document.getElementById('accuracy').textContent = `${accuracy}%`;
+                
+                // 生成知识点报告
+                this.generateKnowledgeReport();
+                
+                // 切换屏幕
+                this.switchScreen('gameOverScreen');
+            }
+            
+            generateKnowledgeReport() {
+                const reportElement = document.getElementById('knowledgeReport');
+                let report = '<h3>知识点掌握报告</h3>';
+                
+                Object.entries(this.knowledgeStats).forEach(([pair, stats]) => {
+                    if (stats.total > 0) {
+                        const accuracy = Math.round((stats.correct / stats.total) * 100);
+                        report += `<p>${pair} 配对：${stats.correct}/${stats.total} (${accuracy}%)</p>`;
+                    }
+                });
+                
+                // 添加建议
+                const overallAccuracy = this.pairCount > 0 ? Math.round((this.correctPairs / this.pairCount) * 100) : 0;
+                if (overallAccuracy < 70) {
+                    report += '<p class="report-suggestion">建议：多复习碱基互补配对规则，尤其是错误率较高的配对类型！</p>';
+                } else if (overallAccuracy < 90) {
+                    report += '<p class="report-suggestion">建议：继续练习，争取更高的正确率！</p>';
+                } else {
+                    report += '<p class="report-suggestion">很棒！知识点掌握得非常好！</p>';
+                }
+                
+                reportElement.innerHTML = report;
+            }
+            
+            togglePause() {
+                if (this.gameState === 'playing') {
+                    this.gameState = 'paused';
+                    this.switchScreen('pauseScreen');
+                } else if (this.gameState === 'paused') {
+                    this.gameState = 'playing';
+                    this.switchScreen('gameScreen');
+                }
+            }
+            
+            resumeGame() {
+                this.gameState = 'playing';
+                this.switchScreen('gameScreen');
+            }
+            
+            restartGame() {
+                this.startGame();
+            }
+            
+            returnToMenu() {
+                this.gameState = 'menu';
+                this.switchScreen('startScreen');
+            }
+            
+            switchScreen(screenId) {
+                // 隐藏所有屏幕
+                document.querySelectorAll('.screen').forEach(screen => {
+                    screen.classList.remove('active');
+                });
+                
+                // 显示目标屏幕
+                document.getElementById(screenId).classList.add('active');
+            }
+            
+            updateUI() {
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('lives').textContent = this.lives;
+                document.getElementById('level').textContent = this.level;
+            }
+            
+            render() {
+                // 清空画布
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // 重置所有渲染状态，防止状态污染
+                this.ctx.shadowBlur = 0;
+                this.ctx.shadowColor = 'transparent';
+                this.ctx.lineWidth = 1;
+                this.ctx.strokeStyle = '#000000';
+                this.ctx.fillStyle = '#000000';
+                this.ctx.font = '16px Arial';
+                this.ctx.textAlign = 'left';
+                this.ctx.textBaseline = 'top';
+                
+                // 绘制背景
+                const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+                gradient.addColorStop(0, '#0a192f');
+                gradient.addColorStop(1, '#112240');
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // 绘制玩家碱基
+                if (this.playerBase) {
+                    this.playerBase.render(this.ctx);
+                }
+                
+                // 绘制掉落碱基
+                this.fallingBases.forEach(base => {
+                    base.render(this.ctx, this.difficulty);
+                });
+                
+                // 绘制道具
+                this.props.forEach(prop => {
+                    prop.render(this.ctx);
+                });
+                
+                // 绘制粒子效果
+                this.particles.forEach(particle => {
+                    particle.render(this.ctx);
+                });
+            }
+            
+            startGameLoop() {
+                const gameLoop = () => {
+                    this.update();
+                    this.render();
+                    requestAnimationFrame(gameLoop);
+                };
+                gameLoop();
+            }
+            
+            handleResize() {
+                // 处理窗口大小变化
+                const canvasContainer = this.canvas.parentElement;
+                const rect = canvasContainer.getBoundingClientRect();
+                
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height;
+                
+                // 更新玩家碱基位置
+                if (this.playerBase) {
+                    this.playerBase.y = this.canvas.height - 60;
+                }
+            }
+        }
+
+        // 玩家碱基类
+        class PlayerBase {
+            constructor(x, y, baseType) {
+                this.x = x;
+                this.y = y;
+                this.baseType = baseType;
+                this.radius = 30;
+                this.colorMap = {
+                    A: '#90caf9',
+                    T: '#ef5350',
+                    C: '#4fc3f7',
+                    G: '#29b6f6',
+                    U: '#ffeb3b'
+                };
+            }
+            
+            update(targetX) {
+                // 优化的平滑移动：使用lerp算法，每帧移动目标距离的25%，响应迅速且平滑
+                const lerpFactor = 0.25; // 平滑系数，值越大越响应迅速
+                this.x += (targetX - this.x) * lerpFactor;
+            }
+            
+            changeBase(newBase) {
+                this.baseType = newBase;
+            }
+            
+            render(ctx) {
+                // 绘制发光效果
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = this.colorMap[this.baseType];
+                
+                // 绘制碱基
+                ctx.fillStyle = this.colorMap[this.baseType];
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 绘制边框
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = this.baseType === 'T' || this.baseType === 'U' ? '#000000' : '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // 绘制碱基字母
+                ctx.fillStyle = this.baseType === 'T' || this.baseType === 'U' ? '#000000' : '#0d47a1';
+                ctx.font = 'bold 24px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.baseType, this.x, this.y);
+            }
+        }
+
+        // 掉落碱基类
+        class FallingBase {
+            constructor(x, y, type, speed) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.radius = 25;
+                this.speed = speed;
+                this.colorMap = {
+                    A: '#90caf9',
+                    T: '#ef5350',
+                    C: '#4fc3f7',
+                    G: '#29b6f6',
+                    U: '#ffeb3b',
+                    fake: '#90caf9' // 假碱基改为与ACG相同的蓝色
+                };
+                // 添加轻微的左右摇摆效果（进一步减小幅度）
+                this.oscillationSpeed = Math.random() * 0.03 + 0.01;
+                this.oscillationOffset = Math.random() * Math.PI * 2;
+                this.originalX = x;
+            }
+            
+            render(ctx, difficulty = 'easy') {
+                // 保存上下文状态
+                ctx.save();
+                
+                // 重置所有阴影效果
+                ctx.shadowBlur = 0;
+                ctx.shadowColor = 'transparent';
+                
+                // 启用抗锯齿和高清晰度渲染
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                
+                // 获取碱基颜色，困难模式下T和U颜色一致
+                let baseColor = this.colorMap[this.type];
+                if (difficulty === 'hard') {
+                    // 困难模式下，T和U都使用T的颜色
+                    if (this.type === 'U') {
+                        baseColor = this.colorMap['T'];
+                    }
+                }
+                
+                // 绘制发光效果 - 优化光效，减少拖尾
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = baseColor;
+                
+                // 绘制碱基
+                ctx.fillStyle = baseColor;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 重置阴影后绘制边框
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = (this.type === 'T' || this.type === 'U') ? '#000000' : '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // 绘制碱基字母 - 优化文本渲染
+                ctx.fillStyle = (this.type === 'T' || this.type === 'U') ? '#000000' : '#0d47a1';
+                ctx.font = 'bold 24px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.textRendering = 'optimizeLegibility';
+                ctx.fillText(this.type === 'fake' ? '?' : this.type, this.x, this.y);
+                
+                // 恢复上下文状态
+                ctx.restore();
+            }
+        }
+
+        // 道具类
+        class Prop {
+            constructor(x, y, type, speed) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.radius = 20;
+                this.speed = speed;
+                this.colorMap = {
+                    lock: '#ffd700',
+                    slow: '#81c784',
+                    life: '#e91e63'
+                };
+                this.iconMap = {
+                    lock: '🔒',
+                    slow: '⏬',
+                    life: '❤️'
+                };
+                // 添加旋转效果
+                this.rotation = 0;
+                this.rotationSpeed = Math.random() * 0.05 + 0.03;
+            }
+            
+            render(ctx) {
+                // 保存当前上下文状态
+                ctx.save();
+                
+                // 启用高清晰度渲染
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                
+                // 平移到道具中心
+                ctx.translate(this.x, this.y);
+                // 应用旋转
+                ctx.rotate(this.rotation);
+                
+                // 绘制发光效果
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = this.colorMap[this.type];
+                
+                // 绘制道具
+                ctx.fillStyle = this.colorMap[this.type];
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 绘制图标
+                ctx.shadowBlur = 0;
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(this.iconMap[this.type], 0, 0);
+                
+                // 恢复上下文状态
+                ctx.restore();
+                
+                // 更新旋转
+                this.rotation += this.rotationSpeed;
+            }
+        }
+
+        // 粒子类
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 8;
+                this.vy = (Math.random() - 0.5) * 8;
+                this.life = 30;
+                this.maxLife = 30;
+                this.size = Math.random() * 3 + 2;
+            }
+            
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.2; // 重力
+                this.life--;
+            }
+            
+            render(ctx) {
+                if (this.life <= 0) return;
+                
+                const alpha = this.life / this.maxLife;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // 游戏初始化
+        let game;
+        window.addEventListener('DOMContentLoaded', () => {
+            game = new BasePairGame();
+        });
+    </script>
+</body>
+</html>
